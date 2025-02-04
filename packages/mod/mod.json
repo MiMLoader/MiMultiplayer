@@ -1,0 +1,12 @@
+{
+  "name": "mimultiplayer",
+  "description": "Multiplayer Moonstone Island",
+  "author": "Ahhh_Saturn",
+  "version": "1.0.0",
+  "homepage": "",
+  "preload": false,
+  "main": "out/index.js",
+  "priority": 5,
+  "dependencies": [],
+  "tags": []
+}
