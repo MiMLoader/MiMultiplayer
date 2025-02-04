@@ -7,8 +7,8 @@ const query = t.Object({
     key: t.String()
 });
 
-
 const server = new Elysia()
+    .get('/health', 200)
     .ws('/ws', {
         query,
         open(ws) {
@@ -18,4 +18,4 @@ const server = new Elysia()
     })
     .listen(port);
 
-export default server;
+export type Server = typeof server;
