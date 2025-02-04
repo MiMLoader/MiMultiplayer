@@ -1,5 +1,7 @@
 import { Elysia, t } from 'elysia';
 
+const port = Bun.env.PORT || 3000;
+
 const query = t.Object({
     id: t.String(),
     key: t.String()
@@ -14,6 +16,6 @@ const server = new Elysia()
             ws.send('meow');
         }
     })
-    .listen(3000);
+    .listen(port);
 
 export default server;
