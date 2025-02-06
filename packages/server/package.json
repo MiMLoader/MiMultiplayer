@@ -1,10 +1,13 @@
 {
   "name": "server",
+  "version": "1.0.0",
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "start": "bun --bun run src/index.ts",
-    "build": "bun build --compile --minify-whitespace --minify-syntax --target bun --outfile server ./src/index.ts"
+    "start": "echo bun run src/index.ts",
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build --compile --minify-whitespace --minify-syntax --target bun --outfile server ./src/index.ts",
+    "host": "./server"
   },
   "devDependencies": {
     "@types/bun": "latest"

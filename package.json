@@ -6,5 +6,11 @@
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
-  }
+  },
+  "dependencies": {
+    "@moonrepo/cli": "^1.32.1"
+  },
+  "trustedDependencies": [
+    "@moonrepo/cli"
+  ]
 }
