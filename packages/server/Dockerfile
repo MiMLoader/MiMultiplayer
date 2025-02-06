@@ -20,7 +20,7 @@ RUN bun build \
     --outfile server \
     ./src/index.ts
 
-FROM gcr.io/distroless/base
+FROM gcr.io/distroless/base-debian10
 
 WORKDIR /app
 
