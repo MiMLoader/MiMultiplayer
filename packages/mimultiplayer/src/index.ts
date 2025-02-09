@@ -71,11 +71,13 @@ class MiMulti {
                     break;
                 }
                 case 'startSyncPlayer': {
-                    return this.playerSyncLoop(socket);
+                    this.playerSyncLoop(socket);
+                    break;
                 }
                 case 'close': {
                     console.log(`Server requested disconnect: ${data}`);
                     socket.close();
+                    break;
                 }
 
             }
@@ -84,27 +86,67 @@ class MiMulti {
 }
 
 class Overlay {
-    overlayElem = inGameProcess ? document.createElement('div') : undefined as unknown as HTMLDivElement;
+    private overlayContainerElem = document.createElement('div');
+    overlayElem = document.createElement('div');
     private _visible = false;
-    isConnected = false;
     get visible(): boolean {
         return this._visible;
     }
     constructor() {
-        if (!inGameProcess) return;
-        this.overlayElem.style.zIndex = '10000';
-        this.overlayElem.style.width = `${window.innerWidth / 2}px`;
-        this.overlayElem.style.height = `${window.innerHeight / 2}px`;
-        this.overlayElem.style.position = 'absolute';
-        this.overlayElem.style.top = '0';
-        this.overlayElem.style.right = '0';
-        this.overlayElem.style.backgroundColor = '#000';
-        this.overlayElem.style.display = 'none';
+        this.overlayContainerElem.id = 'overlayContainer';
+        this.overlayElem.id = 'overlay';
 
-        document.body.appendChild(this.overlayElem);
+        this.overlayContainerElem.style.display = 'grid';
+        this.overlayContainerElem.style.placeItems = 'center';
+        this.overlayContainerElem.style.height = '100vh';
+        this.overlayContainerElem.style.width = '100vw';
+        this.overlayContainerElem.style.zIndex = '10000';
+        this.overlayContainerElem.style.position = 'absolute';
+        this.overlayContainerElem.style.top = '0';
+        this.overlayContainerElem.style.left = '0';
+
+        const iFrameElem = document.createElement('iframe');
+        iFrameElem.src = 'http://localhost:5131/mods/mimultiplayer/assets/index.html';
+        iFrameElem.style.width = '50vw';
+        iFrameElem.style.height = '50vh';
+        iFrameElem.style.padding = '0';
+        iFrameElem.style.margin = '0';
+        iFrameElem.style.border = 'none';
+        iFrameElem.style.borderRadius = '8px';
+        iFrameElem.style.outlineColor = '#bd745d';
+        iFrameElem.style.outlineWidth = '6px';
+        iFrameElem.style.outlineStyle = 'solid';
+
+        this.handleMessages(iFrameElem);
+        this.overlayElem.appendChild(iFrameElem);
+        this.overlayContainerElem.appendChild(this.overlayElem);
+        document.body.appendChild(this.overlayContainerElem);
+
     }
-    connectToServerElement = () => {
-        const element = document.createElement('input');
+    private handleMessages = async (frame: HTMLIFrameElement) => {
+        const ping = setInterval(() => {
+            frame.contentWindow?.postMessage('ping', 'http://localhost:5131');
+        }, 1000);
+        window.addEventListener('message', (event) => {
+            console.log(event.data);
+            if (event.data === 'pong') return clearInterval(ping);
+        });
+
+    };
+    private joinWorld = async () => {
+        const multi = new MiMulti('',
+            '',
+            '',
+            // @ts-ignore
+            nw.require('./greenworks').getSteamId().screenName
+        );
+        multi.ping().catch((err) => {
+            console.log(err);
+            window.confirm(`Cant connect: ${err}`);
+        }).then(() => {
+            multi.connect();
+        }
+        );
     };
     toggle = () => {
         if (this.visible) {
@@ -120,19 +162,21 @@ class Overlay {
             if (event.key !== key) return;
             this.toggle();
         });
+        return this;
     };
 }
 
-const overlay = new Overlay();
+
 if (inGameProcess) {
-    //@ts-ignore
+    new Overlay()
+        .bindToKey('\\');
+    // @ts-ignore
     nw.require('./greenworks').init();
-    overlay.bindToKey('o');
 }
 
 if (!inGameProcess) {
     const worldId = 'test';
-    const key = 'password';
+    const key = 'meow';
     const user = 'testUser';
     const multi = new MiMulti('localhost:3000',
         worldId,

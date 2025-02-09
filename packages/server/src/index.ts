@@ -82,7 +82,7 @@ const server = new Elysia()
             }
             if (this.world.key !== data.query.key) return close(4403, 'Forbidden');
 
-            subscribe('playerSync');
+            subscribe('syncPlayer');
             subscribe('main');
 
             const player = new Player(id, data.query.playerInfo.name);
@@ -109,7 +109,7 @@ const server = new Elysia()
             if (!self) return;
             switch (channel) {
                 case 'syncPlayer': {
-                    publish('meow', { channel, data });
+                    publish('syncPlayer', { channel, data });
                 }
             }
         }

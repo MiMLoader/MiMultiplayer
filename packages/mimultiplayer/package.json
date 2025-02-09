@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "bun run src/index.ts",
-    "build": "bun build ./src/index.ts --outdir ./out && cp ./mod.json ./out/mod.json"
+    "build": "moon overlay:build && bun build ./src/index.ts --outdir ./out && cp ./mod.json ./out/mod.json"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

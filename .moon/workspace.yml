@@ -1,7 +1,10 @@
 $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
 projects:
-  - 'packages/*'
+  globs:
+    - 'packages/*'
+  sources:
+    connecter: 'packages/mimultiplayer/overlay'
 
 vcs:
   manager: 'git'
