@@ -109,7 +109,13 @@ const server = new Elysia()
             if (!self) return;
             switch (channel) {
                 case 'syncPlayer': {
-                    publish('syncPlayer', { channel, data });
+                    const playerObj: Player = {
+                        id,
+                        name: self.name,
+                        instVars: data
+                    };
+                    this.world.players.current.set(id, playerObj);
+                    publish('syncPlayer', { channel, playerObj });
                 }
             }
         }
