@@ -114,6 +114,7 @@ const server = new Elysia()
                         name: self.name,
                         instVars: data
                     };
+                    console.log(playerObj, data)
                     this.world.players.current.set(id, playerObj);
                     publish('syncPlayer', { channel, playerObj });
                 }
