@@ -132,3 +132,5 @@ dist
 # moon
 .moon/cache
 .moon/docker
+
+packages/mimultiplayer/assets

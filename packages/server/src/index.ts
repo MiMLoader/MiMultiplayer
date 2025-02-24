@@ -1,9 +1,6 @@
 import { Elysia, t } from 'elysia';
 import { version } from '../package.json' with { type: "json" };
 
-// import { ElysiaWS } from 'elysia/ws';
-
-
 const port = Bun.env.PORT || 3000;
 
 const query = t.Object({
@@ -26,9 +23,7 @@ class World {
     id: string | undefined;
     key: string | undefined;
     owner: string | undefined;
-    players = {
-        current: new Map<string, Player>(),
-    };
+    players = new Map<string, Player>();
 }
 
 export class Player {
@@ -86,26 +81,26 @@ const server = new Elysia()
             subscribe('main');
 
             const player = new Player(id, data.query.playerInfo.name);
-            this.world.players.current.set(player.id, player);
+            this.world.players.set(player.id, player);
             send({ channel: 'startSyncPlayer', data: true });
         },
         close({ id, publish }) {
-            const player = this.world.players.current.get(id);
+            const player = this.world.players.get(id);
             if (!player) return;
             this.log(`${player.name} (${player.id}) disconnected`);
             if (player.id === this.world.owner) {
                 this.log('owner disconnected, closing');
                 publish('main', { channel: 'close', data: 'Server Closed' });
             }
-            this.world.players.current.delete(player.id);
-            if (this.world.players.current.size === 0) {
+            this.world.players.delete(player.id);
+            if (this.world.players.size === 0) {
                 this.log('0 players in world, closing');
                 // @ts-ignore
                 this.world = new World();
             }
         },
         message({ body: { channel, data }, id, publish }) {
-            const self = this.world.players.current.get(id);
+            const self = this.world.players.get(id);
             if (!self) return;
             switch (channel) {
                 case 'syncPlayer': {
@@ -114,7 +109,7 @@ const server = new Elysia()
                         name: self.name,
                         instVars: data
                     };
-                    this.world.players.current.set(id, playerObj);
+                    this.world.players.set(id, playerObj);
                     publish('syncPlayer', { channel, data: playerObj });
                 }
             }

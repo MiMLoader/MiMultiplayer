@@ -1,0 +1,23 @@
+{
+    "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+    "overrides": [
+        {
+            "include": [
+                "./packages/mimultiplayer/src/index.ts"
+            ],
+            "linter": {
+                "rules": {
+                    "suspicious": {
+                        "noExplicitAny": "off"
+                    }
+                }
+            }
+        }
+    ],
+    "javascript": {
+        "globals": [
+            "miml",
+            "nw"
+        ]
+    }
+}

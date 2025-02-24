@@ -1,8 +1,6 @@
 import type { Server, Player } from 'server';
 import { treaty } from '@elysiajs/eden';
 
-const inGameProcess = typeof window !== 'undefined';
-
 class MiMulti {
     worldId: string;
     key: string;
@@ -10,6 +8,7 @@ class MiMulti {
     username: string;
     server;
     players = new Map<string, Player>();
+    playerSprites = new Map<string, any>();
     rawWs;
     constructor(server: string, worldId: string, key: string, username: string) {
         this.worldId = worldId;
@@ -20,15 +19,31 @@ class MiMulti {
         this.server = treaty<Server>(this.serverUrl);
         this.rawWs = this.server.ws({ id: '' }).subscribe();
     }
+    updatePlayer = (playerObj: Player) => {
+        if (!this.players.has(playerObj.id)) {
+            const player = miml.runtime._GetLocalRuntime()._iRuntime.objects.Player.createInstance(0, 0, 0, true, 5);
+            player.isVisible = true;
+            this.playerSprites.set(playerObj.id, player);
+        }
+        this.players.set(playerObj.id, playerObj);
+        const player = this.playerSprites.get(playerObj.id);
+        console.log(player);
+        // Object.assign(player.instVars, playerObj.instVars);
+    };
     playerSyncLoop = (socket: this['rawWs']) => {
-        if (!inGameProcess) return;
-
-        setInterval(() => {
+        const waitForPlayerInst = setInterval(() => {
             // @ts-ignore;
             const player = miml.runtime._GetLocalRuntime()._iRuntime.objects.Player.getFirstInstance();
             if (!player) return;
-            socket.send({ channel: 'syncPlayer', data: player.instVars });
+            clearInterval(waitForPlayerInst);
+            return tickPlayer(player);
         }, 500);
+
+        const tickPlayer = (player: any) => {
+            setInterval(() => {
+                socket.send({ channel: 'syncPlayer', data: player.instVars });
+            }, 20);
+        };
     };
     connect = async () => {
         const connAttempt = await this.server.health.get();
@@ -40,6 +55,9 @@ class MiMulti {
         await this.server.health.get();
         const end = new Date().getMilliseconds();
         return (end - start);
+    };
+    close = () => {
+        console.warn('not connected');
     };
     socket = async () => {
         const socket = this.server.ws({ id: this.worldId }).subscribe({
@@ -53,6 +71,10 @@ class MiMulti {
         });
         socket.on('open', () => {
             console.log('Connected to mimulti server');
+            this.close = () => {
+                socket.close();
+                overlay.disconnected();
+            };
         });
         socket.on('error', (err) => {
             console.log(err);
@@ -61,13 +83,17 @@ class MiMulti {
             console.warn(`Connection closed: ${event.code}, ${event.reason}`);
             socket.close();
         });
-        socket.on('message', ({ data: { channel, data } }) => {
-            console.log(`[${channel}] ${data}`);
+        socket.on('message', ({ data: { data, channel } }) => {
             switch (channel) {
                 case 'syncPlayer': {
                     const player = data as Player;
-                    console.log(player);
-                    this.players.set(player.id, player);
+                    this.updatePlayer(player);
+                    const playerSprite = this.playerSprites.get(player.id);
+                    // miml.runtime._GetLocalRuntime()._iRuntime.objects.Player.getFirstInstance().x = player.instVars?.lastX;
+                    // miml.runtime._GetLocalRuntime()._iRuntime.objects.Player.getFirstInstance().y = player.instVars?.lastY;
+
+                    playerSprite.x = player.instVars?.lastX;
+                    playerSprite.y = player.instVars?.lastY;
                     break;
                 }
                 case 'startSyncPlayer': {
@@ -79,7 +105,6 @@ class MiMulti {
                     socket.close();
                     break;
                 }
-
             }
         });
     };
@@ -89,12 +114,14 @@ class Overlay {
     private overlayContainerElem = document.createElement('div');
     overlayElem = document.createElement('div');
     private _visible = false;
+    private iFrameElem = document.createElement('iframe');
     get visible(): boolean {
         return this._visible;
     }
     constructor() {
         this.overlayContainerElem.id = 'overlayContainer';
         this.overlayElem.id = 'overlay';
+        this.overlayElem.style.display = 'none';
 
         this.overlayContainerElem.style.display = 'grid';
         this.overlayContainerElem.style.placeItems = 'center';
@@ -105,53 +132,75 @@ class Overlay {
         this.overlayContainerElem.style.top = '0';
         this.overlayContainerElem.style.left = '0';
 
-        const iFrameElem = document.createElement('iframe');
-        iFrameElem.src = 'http://localhost:5131/mods/mimultiplayer/assets/index.html';
-        iFrameElem.style.width = '50vw';
-        iFrameElem.style.height = '50vh';
-        iFrameElem.style.padding = '0';
-        iFrameElem.style.margin = '0';
-        iFrameElem.style.border = 'none';
-        iFrameElem.style.borderRadius = '8px';
-        iFrameElem.style.outlineColor = '#bd745d';
-        iFrameElem.style.outlineWidth = '6px';
-        iFrameElem.style.outlineStyle = 'solid';
+        this.iFrameElem.src = 'http://localhost:5131/mods/mimultiplayer/assets/index.html';
+        this.iFrameElem.style.width = '50vw';
+        this.iFrameElem.style.height = '50vh';
+        this.iFrameElem.style.padding = '0';
+        this.iFrameElem.style.margin = '0';
+        this.iFrameElem.style.border = 'none';
+        this.iFrameElem.style.borderRadius = '8px';
+        this.iFrameElem.style.outlineColor = '#bd745d';
+        this.iFrameElem.style.outlineWidth = '6px';
+        this.iFrameElem.style.outlineStyle = 'solid';
 
-        this.handleMessages(iFrameElem);
-        this.overlayElem.appendChild(iFrameElem);
+        this.messages.handleMessages();
+        this.overlayElem.appendChild(this.iFrameElem);
         this.overlayContainerElem.appendChild(this.overlayElem);
         document.body.appendChild(this.overlayContainerElem);
 
     }
-    private handleMessages = async (frame: HTMLIFrameElement) => {
-        const ping = setInterval(() => {
-            frame.contentWindow?.postMessage('ping', 'http://localhost:5131');
-        }, 1000);
-        window.addEventListener('message', (event) => {
-            console.log(event.data);
-            if (event.data === 'pong') return clearInterval(ping);
-        });
+    private messages = {
+        handleMessages: async () => {
+            const ping = setInterval(() => {
+                this.messages.sendMessage(
+                    'ping',
+                    // @ts-ignore
+                    nw.require('./greenworks').getSteamId().screenName
+                );
+            }, 1000);
+            window.addEventListener('message', (event) => {
+                if (event.data.channel === 'pong') return clearInterval(ping);
+                if (event.data.channel === 'close') return this.toggle();
+                if (event.data.channel === 'connect') {
+                    console.log(event.data.data);
+                    const connectInfo = JSON.parse(event.data.data);
+                    console.log(connectInfo);
+                    return this.joinWorld(connectInfo.address, connectInfo.worldId, connectInfo.key, connectInfo.username);
+                }
+            });
 
+        },
+        sendMessage: async (channel: string, data: string) => {
+            this.iFrameElem.contentWindow?.postMessage({ channel, data }, 'http://localhost:5131');
+        }
     };
-    private joinWorld = async () => {
-        const multi = new MiMulti('',
-            '',
-            '',
-            // @ts-ignore
-            nw.require('./greenworks').getSteamId().screenName
+    disconnected = () => {
+        this.messages.sendMessage('disconnected', '');
+    };
+    private joinWorld = async (address: string, worldId: string, key: string, username: string) => {
+        const multi = new MiMulti(address,
+            worldId,
+            key,
+            username
         );
-        multi.ping().catch((err) => {
+        multi.connect().catch((err) => {
             console.log(err);
+            this.messages.sendMessage('connect', 'failed');
             window.confirm(`Cant connect: ${err}`);
         }).then(() => {
-            multi.connect();
-        }
-        );
+            multi.socket();
+            this.messages.sendMessage('connect', 'success');
+            window.addEventListener('message', (event) => {
+                if (event.data.channel === 'disconnect') return multi.close();
+                this.messages.sendMessage('disconnected', '');
+            });
+        });
     };
     toggle = () => {
         if (this.visible) {
             this._visible = false;
             this.overlayElem.style.display = 'none';
+            window.focus();
         } else {
             this._visible = true;
             this.overlayElem.style.display = 'block';
@@ -166,22 +215,7 @@ class Overlay {
     };
 }
 
-
-if (inGameProcess) {
-    new Overlay()
-        .bindToKey('\\');
-    // @ts-ignore
-    nw.require('./greenworks').init();
-}
-
-if (!inGameProcess) {
-    const worldId = 'test';
-    const key = 'meow';
-    const user = 'testUser';
-    const multi = new MiMulti('localhost:3000',
-        worldId,
-        key,
-        user
-    );
-    multi.socket();
-}
+// @ts-ignore
+nw.require('./greenworks').init();
+const overlay = new Overlay()
+    .bindToKey('\\');
