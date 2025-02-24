@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@elysiajs/eden": "^1.2.0",
-    "elysia": "^1.2.11"
+    "elysia": "^1.2.11",
+    "prom-client": "^15.1.3"
   }
 }

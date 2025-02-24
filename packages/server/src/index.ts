@@ -1,7 +1,16 @@
 import { Elysia, t } from 'elysia';
+import { collectDefaultMetrics, Registry, Gauge } from 'prom-client';
 import { version } from '../package.json' with { type: "json" };
 
 const port = Bun.env.PORT || 3000;
+
+const register = new Registry();
+collectDefaultMetrics({ register });
+
+const worldCount = new Gauge({ name: 'world_count', help: 'world_count' });
+const playerCount = new Gauge({ name: 'player_count', help: 'player_count' });
+register.registerMetric(worldCount);
+register.registerMetric(playerCount);
 
 const query = t.Object({
     worldId: t.String(),
@@ -54,6 +63,10 @@ export class Player {
 const server = new Elysia()
     .get('/health', 200)
     .get('/ping', 200)
+    .get('/metrics', ({ set }) => {
+        set.headers['content-type'] = register.contentType;
+        return register.metrics();
+    })
     .ws('/ws/:id', {
         world: new World(),
         query,
@@ -71,6 +84,7 @@ const server = new Elysia()
                 this.world.id = data.query.worldId;
                 this.world.key = data.query.key;
                 this.world.owner = id;
+                worldCount.inc(1);
                 this.log(`started by ${data.query.playerInfo.name} (${id})`);
             } else {
                 this.log(`${data.query.playerInfo.name} (${id}) joined`);
@@ -80,6 +94,8 @@ const server = new Elysia()
             subscribe('syncPlayer');
             subscribe('main');
 
+            playerCount.inc(1);
+
             const player = new Player(id, data.query.playerInfo.name);
             this.world.players.set(player.id, player);
             send({ channel: 'startSyncPlayer', data: true });
@@ -87,6 +103,7 @@ const server = new Elysia()
         close({ id, publish }) {
             const player = this.world.players.get(id);
             if (!player) return;
+            playerCount.dec(1);
             this.log(`${player.name} (${player.id}) disconnected`);
             if (player.id === this.world.owner) {
                 this.log('owner disconnected, closing');
@@ -95,6 +112,7 @@ const server = new Elysia()
             this.world.players.delete(player.id);
             if (this.world.players.size === 0) {
                 this.log('0 players in world, closing');
+                worldCount.dec(1);
                 // @ts-ignore
                 this.world = new World();
             }
